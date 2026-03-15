@@ -22,11 +22,14 @@ body {
     font-family: 'Outfit', sans-serif;
     background-color: var(--bg-color);
     color: var(--text-color);
-    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
     overflow: hidden;
-    position: relative;
-    display: flex;
-    justify-content: center;
 }
 
 /* Dynamic Stars Background */
@@ -76,7 +79,8 @@ body {
 .chat-container {
     width: 100%;
     max-width: 900px;
-    height: 100vh;
+    height: 100%;
+    margin: 0 auto;
     display: flex;
     flex-direction: column;
     position: relative;
@@ -120,11 +124,13 @@ body {
 }
 
 .logo-text {
+    font-family: 'Outfit', sans-serif;
     font-size: 1.25rem;
     font-weight: 700;
     letter-spacing: 1px;
     background: linear-gradient(90deg, #fff, var(--primary-color));
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
@@ -169,6 +175,7 @@ body {
 /* Chat Messages Area */
 .chat-messages {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     padding: 1.5rem;
     display: flex;
@@ -253,9 +260,17 @@ body {
 /* Input Area */
 .chat-input-area {
     padding: 1rem;
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
     border-top: 1px solid var(--glass-border);
     position: relative;
     z-index: 10;
+}
+
+@media (max-width: 768px) {
+    .chat-input-area {
+        padding: 0.75rem;
+        padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    }
 }
 
 .input-wrapper {
