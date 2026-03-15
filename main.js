@@ -1,9 +1,10 @@
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
 const SUPABASE_URL = 'https://bzdxjrlfzgclstydtaja.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6ZHhqcmxmemdjbHN0eWR0YWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NjcwNTAsImV4cCI6MjA4OTE0MzA1MH0.auHFtrSQ2qazyKEuDGlyg1j3AdLYQVbFNkTQYx8-Gd0';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 document.addEventListener('DOMContentLoaded', () => {
-    // DOM Elements
     const userIdDisplay = document.getElementById('user-id-display');
     const chatMessages = document.getElementById('chat-messages');
     const messageInput = document.getElementById('message-input');
@@ -15,11 +16,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const previewText = document.getElementById('preview-text');
     const removeUploadBtn = document.getElementById('remove-upload-btn');
 
-    // State
     let currentUser = null;
     let selectedFile = null;
 
-    // Initialization: Generate or Retrieve User ID
     const initializeUser = () => {
         let storedId = localStorage.getItem('ghost_chat_user_id');
         if (!storedId) {
@@ -28,13 +27,12 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('ghost_chat_user_id', storedId);
         }
         currentUser = storedId;
-        userIdDisplay.textContent = currentUser;
+        if(userIdDisplay) userIdDisplay.textContent = currentUser;
     };
 
     initializeUser();
 
-    // Utility: Auto-resize textarea
-    messageInput.addEventListener('input', function() {
+    if(messageInput) messageInput.addEventListener('input', function() {
         this.style.height = 'auto';
         this.style.height = (this.scrollHeight) + 'px';
         if (this.value === '') {
@@ -42,16 +40,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Utility: Scroll to bottom
     const scrollToBottom = () => {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        if(chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight;
     };
 
-    // Message Rendering Logic
     const appendMessage = (msgData) => {
         const { userId, text, emoji, fileUrl, createdAt } = msgData;
-        
-        // Prevent duplicate rendering
         if (document.getElementById(`msg-${msgData.messageId}`)) return;
 
         const isMe = userId === currentUser;
@@ -95,77 +89,83 @@ document.addEventListener('DOMContentLoaded', () => {
 
         messageDiv.appendChild(metaDiv);
         messageDiv.appendChild(bubbleDiv);
-        chatMessages.appendChild(messageDiv);
+        if(chatMessages) chatMessages.appendChild(messageDiv);
         scrollToBottom();
     };
 
-    // Load History
     const loadHistory = async () => {
-        const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
-        const { data: messages, error } = await supabase
-            .from('messages')
-            .select('*')
-            .gt('createdAt', twentyFourHoursAgo)
-            .order('createdAt', { ascending: true });
+        try {
+            const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
+            const { data: messages, error } = await supabase
+                .from('messages')
+                .select('*')
+                .gt('createdAt', twentyFourHoursAgo)
+                .order('createdAt', { ascending: true });
 
-        if (!error && messages) {
-            chatMessages.innerHTML = '';
-            messages.forEach(appendMessage);
-            scrollToBottom();
+            if (error) throw error;
+            if (messages && chatMessages) {
+                chatMessages.innerHTML = '';
+                messages.forEach(appendMessage);
+                scrollToBottom();
+            }
+        } catch(err) {
+            console.error(err);
         }
     };
 
     loadHistory();
 
-    // Subscribe to Realtime Inserts
-    supabase
-        .channel('public:messages')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
-            appendMessage(payload.new);
-            scrollToBottom();
-        })
-        .subscribe();
+    try {
+        supabase
+            .channel('public:messages')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+                appendMessage(payload.new);
+                scrollToBottom();
+            })
+            .subscribe((status, err) => {
+                if(err) console.error("Subscription err:", err);
+            });
+    } catch(err) {
+        console.error("Subscription crash:", err);
+    }
 
-
-    // File Upload Handling
-    fileBtn.addEventListener('click', () => {
+    if(fileBtn) fileBtn.addEventListener('click', () => {
         fileInput.click();
     });
 
-    fileInput.addEventListener('change', (e) => {
+    if(fileInput) fileInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
             selectedFile = e.target.files[0];
-            
             if (selectedFile.size > 10 * 1024 * 1024) {
                 alert('File is too large. Limit is 10MB.');
                 clearUpload();
                 return;
             }
-
             previewText.textContent = `📎 ${selectedFile.name}`;
             uploadPreview.classList.remove('hidden');
         }
     });
 
-    removeUploadBtn.addEventListener('click', () => {
+    if(removeUploadBtn) removeUploadBtn.addEventListener('click', () => {
         clearUpload();
     });
 
     const clearUpload = () => {
         selectedFile = null;
-        fileInput.value = '';
-        uploadPreview.classList.add('hidden');
-        previewText.textContent = '';
+        if(fileInput) fileInput.value = '';
+        if(uploadPreview) uploadPreview.classList.add('hidden');
+        if(previewText) previewText.textContent = '';
     };
 
-    // Send Message Logic
     const sendMessage = async () => {
+        if(!messageInput) return;
         const text = messageInput.value.trim();
-        
         if (!text && !selectedFile) return;
 
-        sendBtn.style.opacity = '0.5';
-        sendBtn.disabled = true;
+        if(sendBtn) {
+            sendBtn.style.opacity = '0.5';
+            sendBtn.disabled = true;
+        }
 
         let finalFileUrl = '';
 
@@ -204,7 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (error) {
                 console.error("Database Insert Error:", error);
-                alert('Failed to send message. Please ensure Row Level Security (RLS) policies allow anonymous inserts.');
+                alert('Failed to send message: ' + error.message);
             } else {
                 messageInput.value = '';
                 messageInput.style.height = 'auto';
@@ -215,22 +215,24 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error('Error sending message:', error);
         } finally {
-            sendBtn.style.opacity = '1';
-            sendBtn.disabled = false;
+            if(sendBtn) {
+                sendBtn.style.opacity = '1';
+                sendBtn.disabled = false;
+            }
         }
     };
 
-    messageInput.addEventListener('keydown', (e) => {
+    if(messageInput) messageInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             sendMessage();
         }
     });
 
-    sendBtn.addEventListener('click', sendMessage);
+    if(sendBtn) sendBtn.addEventListener('click', sendMessage);
 
     const emojis = ['🚀', '✨', '🪐', '👽', '☄️', '🌌', '👾', '💥'];
-    emojiBtn.addEventListener('click', () => {
+    if(emojiBtn) emojiBtn.addEventListener('click', () => {
         const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
         messageInput.value += randomEmoji;
         messageInput.focus();
