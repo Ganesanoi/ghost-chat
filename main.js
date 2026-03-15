@@ -26,6 +26,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const colorPicker = document.getElementById('color-picker');
     const typingIndicator = document.getElementById('typing-indicator');
 
+    // Premium Feature UI
+    const onlineUsersWrapper = document.getElementById('online-users-wrapper');
+    const onlineCountText = document.getElementById('online-count');
+    const onlineDropdown = document.getElementById('online-dropdown');
+    const onlineUsersList = document.getElementById('online-users-list');
+    
+    const replyBanner = document.getElementById('reply-banner');
+    const replyBannerName = document.getElementById('reply-banner-name');
+    const replyBannerText = document.getElementById('reply-banner-text');
+    const removeReplyBtn = document.getElementById('remove-reply-btn');
+    
+    const nudgeBtn = document.getElementById('nudge-btn');
+    
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightbox-img');
+    const closeLightbox = document.getElementById('close-lightbox');
+
     // --- State ---
     let currentUser = null;
     let selectedFile = null;
@@ -37,6 +54,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let mediaRecorder = null;
     let audioChunks = [];
     let isRecording = false;
+    let isNudging = false;
+    let replyingToMsg = null;
+    let onlineUsersMap = new Map();
 
     // --- Audio System (Feature 5) ---
     const sounds = {
@@ -121,9 +141,28 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Realtime Typing Indicator (Feature 2) ---
-    const presenceChannel = chatDb.channel('typing_sync');
+    // --- Realtime Typing & Presence (Feature 2 & Online Users) ---
+    const presenceChannel = chatDb.channel('global_sync');
+    
     presenceChannel
+        .on('presence', { event: 'sync' }, () => {
+            const state = presenceChannel.presenceState();
+            onlineUsersMap.clear();
+            let count = 0;
+            for (const id in state) {
+                state[id].forEach(u => onlineUsersMap.set(u.userId, u.nickname));
+            }
+            if (onlineCountText) onlineCountText.textContent = onlineUsersMap.size;
+            
+            if (onlineUsersList) {
+                onlineUsersList.innerHTML = '';
+                onlineUsersMap.forEach((name, id) => {
+                    const li = document.createElement('li');
+                    li.textContent = name;
+                    onlineUsersList.appendChild(li);
+                });
+            }
+        })
         .on('broadcast', { event: 'typing' }, payload => {
             if (payload.userId !== currentUser) {
                 typingIndicator.classList.remove('hidden');
@@ -133,7 +172,83 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, 2000);
             }
         })
-        .subscribe();
+        .subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                await presenceChannel.track({
+                    userId: currentUser,
+                    nickname: userName
+                });
+            }
+        });
+
+    if (onlineUsersWrapper) {
+        onlineUsersWrapper.addEventListener('click', () => {
+            onlineDropdown.classList.toggle('hidden');
+        });
+    }
+
+    if (nudgeBtn) {
+        nudgeBtn.addEventListener('click', () => {
+            if(!isNudging) {
+                isNudging = true;
+                nudgeBtn.classList.add('active');
+                sendMessage(true);
+                setTimeout(() => { isNudging = false; nudgeBtn.classList.remove('active'); }, 5000); // 5 sec cooldown
+            }
+        });
+    }
+
+    // Lightbox handling
+    if (lightbox) {
+        lightbox.addEventListener('click', (e) => {
+            if(e.target !== lightboxImg) lightbox.classList.add('hidden');
+        });
+        if (closeLightbox) closeLightbox.addEventListener('click', () => lightbox.classList.add('hidden'));
+    }
+
+    // Intersection Observer for Read Receipts
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if(entry.isIntersecting) {
+                const msgEl = entry.target;
+                const msgId = msgEl.id.replace('msg-', '');
+                if (msgEl.classList.contains('other-message') && !msgEl.dataset.readProcessed) {
+                    msgEl.dataset.readProcessed = 'true';
+                    window.markAsRead(msgId);
+                }
+            }
+        });
+    }, { threshold: 0.5 });
+    
+    window.markAsRead = async (msgId) => {
+        const { data } = await chatDb.from('messages').select('emoji').eq('messageId', msgId).single();
+        if(data && data.emoji && data.emoji.startsWith('META:')) {
+            try {
+                let meta = JSON.parse(data.emoji.substring(5));
+                meta.readBy = meta.readBy || [];
+                if (!meta.readBy.includes(currentUser)) {
+                    meta.readBy.push(currentUser);
+                    await chatDb.from('messages').update({ emoji: 'META:' + JSON.stringify(meta) }).eq('messageId', msgId);
+                }
+            } catch(e) {}
+        }
+    };
+    
+    // Reply Banner
+    const setReplyTo = (msgData, meta) => {
+        replyingToMsg = { id: msgData.messageId, name: meta.nickname, text: msgData.text || (meta.isAudio ? 'Voice Message' : (msgData.fileUrl ? 'Image' : 'Emoji')) };
+        if (replyBannerName) replyBannerName.textContent = replyingToMsg.name;
+        if (replyBannerText) replyBannerText.textContent = replyingToMsg.text.substring(0, 30) + (replyingToMsg.text.length > 30 ? '...' : '');
+        if (replyBanner) replyBanner.classList.remove('hidden');
+        if (messageInput) messageInput.focus();
+    };
+
+    if (removeReplyBtn) {
+        removeReplyBtn.addEventListener('click', () => {
+            replyingToMsg = null;
+            if (replyBanner) replyBanner.classList.add('hidden');
+        });
+    }
 
     messageInput.addEventListener('input', function() {
         this.style.height = 'auto';
@@ -157,7 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (document.getElementById(`msg-${msgData.messageId}`)) return;
 
         // Parse legacy or new metadata overloaded in emoji field (hack to avoid schema changes for now)
-        let meta = { ghost_mode: false, color: '', nickname: userId, reactions: {}, isEmojiOnly: false, rawEmoji: '' };
+        let meta = { ghost_mode: false, color: '', nickname: userId, reactions: {}, isEmojiOnly: false, rawEmoji: '', readBy: [] };
         if (emoji && emoji.startsWith('META:')) {
             try {
                 meta = { ...meta, ...JSON.parse(emoji.substring(5)) };
@@ -175,6 +290,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const isMe = userId === currentUser;
         
+        if (meta.isNudge && !isMe) {
+            if (createdAt > Date.now() - 5000) {
+                document.body.classList.add('shake');
+                playSound('receive');
+                setTimeout(() => document.body.classList.remove('shake'), 800);
+            }
+            return;
+        }
+
         if (!isMe && createdAt > Date.now() - 5000) {
             playSound('receive');
             typingIndicator.classList.add('hidden'); // they sent it, fade indicator
@@ -201,6 +325,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (meta.color && isMe) {
             bubbleDiv.style.background = `linear-gradient(135deg, ${meta.color}, var(--secondary-color))`;
             bubbleDiv.style.boxShadow = `0 4px 15px ${meta.color}66`;
+        }
+
+        if (meta.reply) {
+            const quoteDiv = document.createElement('div');
+            quoteDiv.classList.add('quote-box');
+            quoteDiv.innerHTML = `<strong>${meta.reply.name}</strong><br><span>${meta.reply.text}</span>`;
+            bubbleDiv.appendChild(quoteDiv);
         }
 
         if (text) {
@@ -231,6 +362,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 img.classList.add('message-image');
                 img.alt = "Uploaded image";
                 img.onload = scrollToBottom;
+                img.onclick = () => {
+                    lightboxImg.src = fileUrl;
+                    lightbox.classList.remove('hidden');
+                };
                 bubbleDiv.appendChild(img);
             }
         }
@@ -272,16 +407,38 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             bubbleDiv.appendChild(picker);
             
-            bubbleDiv.ondblclick = () => {
+            bubbleDiv.ondblclick = () => setReplyTo(msgData, meta);
+            
+            // Allow long press/right click or a mini icon for reactions/replies
+            // For now double click = reply, we will keep reaction picker on dblclick but maybe shift it
+            // Let's make long press (contextmenu) = picker, double click = reply
+            bubbleDiv.oncontextmenu = (e) => {
+                e.preventDefault();
                 bubbleDiv.classList.toggle('show-picker');
             };
+        }
+
+        const bottomMeta = document.createElement('div');
+        bottomMeta.classList.add('bottom-meta');
+        
+        const readReceipt = document.createElement('span');
+        readReceipt.classList.add('read-receipt');
+        if (isMe) {
+            readReceipt.innerHTML = (meta.readBy && meta.readBy.length > 0) ? '<i class="fa-solid fa-check-double" style="color: #00ffcc;"></i>' : '<i class="fa-solid fa-check"></i>';
+            bottomMeta.appendChild(readReceipt);
         }
 
         messageDiv.appendChild(metaDiv);
         messageDiv.appendChild(bubbleDiv);
         messageDiv.appendChild(reactBox);
+        messageDiv.appendChild(bottomMeta);
+        
         if(chatMessages) chatMessages.appendChild(messageDiv);
         scrollToBottom();
+        
+        if (!isMe) {
+            observer.observe(messageDiv);
+        }
         
         // Ghost Mode Destruction Setup
         if(meta.ghost_mode) {
@@ -442,7 +599,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const { data: publicUrlData } = chatDb.storage.from('uploads').getPublicUrl(fileName);
             
-            const metaInfo = { ghost_mode: isGhostMode, color: userColor, nickname: userName, reactions: {}, isAudio: true, isEmojiOnly: false, rawEmoji: '' };
+            const metaInfo = { ghost_mode: isGhostMode, color: userColor, nickname: userName, reactions: {}, isAudio: true, isEmojiOnly: false, rawEmoji: '', readBy: [], reply: replyingToMsg ? replyingToMsg : null };
             const msg = {
                 messageId: Date.now() + '-' + Math.random().toString(36).substring(2, 9),
                 userId: currentUser,
@@ -489,10 +646,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if(previewText) previewText.textContent = '';
     };
 
-    const sendMessage = async () => {
-        if(!messageInput) return;
-        const text = messageInput.value.trim();
-        if (!text && !selectedFile) return;
+    const sendMessage = async (isNudgeObj = false) => {
+        const _isNudge = (isNudgeObj === true); // boolean check
+        if(!messageInput && !_isNudge) return;
+        
+        const text = messageInput ? messageInput.value.trim() : '';
+        if (!text && !selectedFile && !_isNudge) return;
 
         if(sendBtn) {
             sendBtn.style.opacity = '0.5';
@@ -522,7 +681,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 nickname: userName,
                 reactions: {},
                 isEmojiOnly: false,
-                rawEmoji: ''
+                rawEmoji: '',
+                isNudge: _isNudge,
+                reply: replyingToMsg,
+                readBy: []
             };
 
             const isOnlyEmoji = /^\p{Emoji}+$/u.test(text);
@@ -556,6 +718,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 clearUpload();
                 messageInput.focus();
                 typingIndicator.classList.add('hidden');
+                
+                // Reset reply
+                replyingToMsg = null;
+                if (replyBanner) replyBanner.classList.add('hidden');
             }
 
         } catch (error) {

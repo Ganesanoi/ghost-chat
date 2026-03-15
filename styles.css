@@ -712,3 +712,134 @@ span.emoji {
     border-radius: 20px;
     outline: none;
 }
+
+/* === NEW FEATURES UI CSS === */
+
+/* Top Header Online Count */
+.online-users-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.3rem 0.6rem;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: background 0.2s;
+}
+.online-users-wrapper:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+.online-dropdown {
+    position: absolute;
+    top: 120%;
+    right: 0;
+    width: 200px;
+    border-radius: 10px;
+    padding: 0.5rem;
+    z-index: 100;
+}
+.online-dropdown-header {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--glass-border);
+    padding-bottom: 0.3rem;
+    margin-bottom: 0.3rem;
+    text-transform: uppercase;
+}
+#online-users-list {
+    list-style: none;
+    max-height: 150px;
+    overflow-y: auto;
+}
+#online-users-list li {
+    padding: 0.3rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+#online-users-list li:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+/* Reply Logic */
+.reply-banner {
+    position: absolute;
+    bottom: 100%;
+    left: 1rem;
+    right: 1rem;
+    background: var(--glass-bg);
+    border: 1px solid var(--primary-color);
+    padding: 0.5rem 1rem;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0px;
+    backdrop-filter: blur(10px);
+    font-size: 0.85rem;
+    animation: slideUp 0.2s ease-out;
+}
+.reply-banner.hidden { display: none; }
+.reply-banner i.fa-reply { color: var(--primary-color); }
+.reply-banner-content { flex: 1; }
+.reply-banner-name { font-weight: bold; color: var(--primary-color); font-size: 0.75rem; }
+.reply-banner-text { color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+.remove-reply-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; }
+.remove-reply-btn:hover { color: #ff5555; }
+
+/* Quote Box inside Bubbles */
+.quote-box {
+    background: rgba(0,0,0,0.2);
+    border-left: 3px solid var(--primary-color);
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    font-size: 0.8rem;
+    opacity: 0.9;
+}
+.quote-box strong { color: var(--primary-color); }
+.my-message .quote-box border-left-color { border-color: rgba(255,255,255,0.5); }
+.my-message .quote-box strong { color: #fff; }
+
+/* Read Receipts */
+.bottom-meta {
+    align-self: flex-end;
+    margin-top: 2px;
+    margin-right: 5px;
+}
+.read-receipt i { font-size: 0.65rem; color: var(--text-muted); }
+
+/* Nudge Animation */
+.nudge-btn:hover { color: #f9c80e; transform: scale(1.1) rotate(15deg) !important; }
+.nudge-btn.active { color: #f9c80e; animation: pulseYellow 0.5s infinite; }
+@keyframes pulseYellow { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
+
+body.shake {
+    animation: windowShake 0.15s infinite;
+}
+@keyframes windowShake {
+    0% { transform: translate(3px, 3px) rotate(0deg); }
+    25% { transform: translate(-3px, -2px) rotate(-1deg); }
+    50% { transform: translate(-3px, 3px) rotate(1deg); }
+    75% { transform: translate(3px, -3px) rotate(0deg); }
+    100% { transform: translate(3px, 3px) rotate(-1deg); }
+}
+
+/* Lightbox */
+.lightbox {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.9);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(10px);
+    transition: opacity 0.3s;
+}
+.lightbox.hidden { opacity: 0; pointer-events: none; }
+.lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 8px; box-shadow: 0 0 50px rgba(0,0,0,0.8); object-fit: contain; }
+.close-lightbox { position: absolute; top: 20px; right: 30px; background: transparent; border: none; color: white; font-size: 2rem; cursor: pointer; }
+.close-lightbox:hover { color: var(--primary-color); }
+

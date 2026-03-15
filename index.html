@@ -28,7 +28,14 @@
                 <span class="user-badge" id="user-badge">
                     <i class="fa-solid fa-user-astronaut"></i> <span id="user-id-display">Connecting...</span>
                 </span>
-                <span class="status-indicator online"></span>
+                <div class="online-users-wrapper" id="online-users-wrapper" title="Online Users">
+                    <span class="status-indicator online"></span>
+                    <span id="online-count" class="online-count-text">1</span>
+                    <div id="online-dropdown" class="online-dropdown hidden glass-effect">
+                        <div class="online-dropdown-header">Online Now</div>
+                        <ul id="online-users-list"></ul>
+                    </div>
+                </div>
             </div>
             <div class="disclaimer-tooltip">
                 <i class="fa-solid fa-shield-halved"></i>
@@ -43,6 +50,14 @@
 
         <!-- Input Area -->
         <footer class="chat-input-area glass-effect">
+            <div id="reply-banner" class="reply-banner hidden">
+                <i class="fa-solid fa-reply"></i>
+                <div class="reply-banner-content">
+                    <div class="reply-banner-name" id="reply-banner-name">Name</div>
+                    <div class="reply-banner-text" id="reply-banner-text">Text...</div>
+                </div>
+                <button class="remove-reply-btn" id="remove-reply-btn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
             <div class="input-wrapper">
                 
                 <button type="button" class="action-btn ghost-mode-btn" id="ghost-mode-btn" title="Ghost Mode (10s Self-Destruct)">
@@ -66,6 +81,10 @@
                 
                 <button type="button" class="action-btn mic-btn" id="mic-btn" title="Voice Message (Tap to start/stop)">
                     <i class="fa-solid fa-microphone"></i>
+                </button>
+                
+                <button type="button" class="action-btn nudge-btn" id="nudge-btn" title="Send a Nudge!">
+                    <i class="fa-solid fa-hand-point-right"></i>
                 </button>
                 
                 <button type="button" class="send-btn" id="send-btn">
@@ -104,6 +123,12 @@
                 <button id="save-settings-btn" class="save-btn glass-effect">Save changes</button>
             </div>
         </div>
+    </div>
+
+    <!-- Lightbox for Image Zoom -->
+    <div id="lightbox" class="lightbox hidden">
+        <button id="close-lightbox" class="close-lightbox"><i class="fa-solid fa-xmark"></i></button>
+        <img id="lightbox-img" src="" alt="Zoomed image">
     </div>
 
     <!-- Supabase Client Setup (Added standard script for older devices) -->
