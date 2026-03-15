@@ -206,6 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error("Database Insert Error:", error);
                 alert('Failed to send message: ' + error.message);
             } else {
+                appendMessage(messageObject); // Visually display it immediately for the sender
                 messageInput.value = '';
                 messageInput.style.height = 'auto';
                 clearUpload();
