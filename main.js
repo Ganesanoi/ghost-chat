@@ -1,6 +1,6 @@
 const SUPABASE_URL = 'https://bzdxjrlfzgclstydtaja.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6ZHhqcmxmemdjbHN0eWR0YWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NjcwNTAsImV4cCI6MjA4OTE0MzA1MH0.auHFtrSQ2qazyKEuDGlyg1j3AdLYQVbFNkTQYx8-Gd0';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const chatDb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM Elements ---
@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Realtime Typing & Presence (Feature 2 & Online Users) ---
-    const presenceChannel = supabase.channel('global_sync');
+    const presenceChannel = chatDb.channel('global_sync');
 
     if (plusBtn && actionMenu) {
         plusBtn.addEventListener('click', () => {
@@ -237,14 +237,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }, { threshold: 0.5 });
     
     window.markAsRead = async (msgId) => {
-        const { data } = await supabase.from('messages').select('emoji').eq('messageId', msgId).single();
+        const { data } = await chatDb.from('messages').select('emoji').eq('messageId', msgId).single();
         if(data && data.emoji && data.emoji.startsWith('META:')) {
             try {
                 let meta = JSON.parse(data.emoji.substring(5));
                 meta.readBy = meta.readBy || [];
                 if (!meta.readBy.includes(currentUser)) {
                     meta.readBy.push(currentUser);
-                    await supabase.from('messages').update({ emoji: 'META:' + JSON.stringify(meta) }).eq('messageId', msgId);
+                    await chatDb.from('messages').update({ emoji: 'META:' + JSON.stringify(meta) }).eq('messageId', msgId);
                 }
             } catch(e) {}
         }
@@ -464,7 +464,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (messageDiv.parentNode) messageDiv.parentNode.removeChild(messageDiv);
                     if (isMe) {
                         try {
-                            supabase.from('messages').delete().eq('messageId', msgData.messageId).then(()=>{});
+                            chatDb.from('messages').delete().eq('messageId', msgData.messageId).then(()=>{});
                         } catch(e) {}
                     }
                 }, 1500); // 1.5s animation duration
@@ -481,13 +481,13 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // The tricky part: we update the jsonb safely.
         // For anon users, policy might reject. We will try anyway.
-        const { data } = await supabase.from('messages').select('reactions, emoji').eq('messageId', msgId).single();
+        const { data } = await chatDb.from('messages').select('reactions, emoji').eq('messageId', msgId).single();
         if(data) {
             // Check if schema supports reactions column
             if (data.reactions !== undefined) {
                 let r = data.reactions || {};
                 r[emoji] = (r[emoji] || 0) + 1;
-                await supabase.from('messages').update({ reactions: r }).eq('messageId', msgId);
+                await chatDb.from('messages').update({ reactions: r }).eq('messageId', msgId);
             } else {
                 // Falback to overloaded emoji field
                 let meta = {};
@@ -496,7 +496,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 meta.reactions = meta.reactions || {};
                 meta.reactions[emoji] = (meta.reactions[emoji] || 0) + 1;
-                await supabase.from('messages').update({ emoji: 'META:' + JSON.stringify(meta) }).eq('messageId', msgId);
+                await chatDb.from('messages').update({ emoji: 'META:' + JSON.stringify(meta) }).eq('messageId', msgId);
             }
         }
     };
@@ -504,7 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadHistory = async () => {
         try {
             const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
-            const { data: messages, error } = await supabase
+            const { data: messages, error } = await chatDb
                 .from('messages')
                 .select('*')
                 .gt('createdAt', twentyFourHoursAgo)
@@ -524,7 +524,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadHistory();
 
     try {
-        supabase
+        chatDb
             .channel('public:messages')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
                 appendMessage(payload.new);
@@ -610,10 +610,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const fileExt = MediaRecorder.isTypeSupported('audio/webm') ? 'webm' : 'mp4';
             const fileName = `audio-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-            const { error } = await supabase.storage.from('uploads').upload(fileName, audioBlob, { contentType: `audio/${fileExt}` });
+            const { error } = await chatDb.storage.from('uploads').upload(fileName, audioBlob, { contentType: `audio/${fileExt}` });
             if(error) throw error;
             
-            const { data: publicUrlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
+            const { data: publicUrlData } = chatDb.storage.from('uploads').getPublicUrl(fileName);
             
             const metaInfo = { ghost_mode: isGhostMode, color: userColor, nickname: userName, reactions: {}, isAudio: true, isEmojiOnly: false, rawEmoji: '', readBy: [], reply: replyingToMsg ? replyingToMsg : null };
             const msg = {
@@ -625,7 +625,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 createdAt: Date.now()
             };
             
-            const { error: dbErr } = await supabase.from('messages').insert([msg]);
+            const { error: dbErr } = await chatDb.from('messages').insert([msg]);
             if(dbErr) throw dbErr;
             
             appendMessage(msg);
@@ -683,10 +683,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const fileExt = selectedFile.name.split('.').pop();
                 const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
                 
-                const { error } = await supabase.storage.from('uploads').upload(fileName, selectedFile);
+                const { error } = await chatDb.storage.from('uploads').upload(fileName, selectedFile);
                 if (error) throw error;
                 
-                const { data: publicUrlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
+                const { data: publicUrlData } = chatDb.storage.from('uploads').getPublicUrl(fileName);
                 finalFileUrl = publicUrlData.publicUrl;
             }
 
@@ -722,7 +722,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // But doing so strictly will crash if they didn't. We will rely entirely on the META overload for safety.
             // If we try adding them, Supabase insert will fail.
 
-            const { error } = await supabase.from('messages').insert([messageObject]);
+            const { error } = await chatDb.from('messages').insert([messageObject]);
             
             if (error) {
                 console.error("Database Insert Error:", error);
