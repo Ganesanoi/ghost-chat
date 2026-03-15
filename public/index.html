@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Modern Font: Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>Ghost Chat</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="stars-bg"></div>
+
+    <main class="chat-container">
+        <!-- Header -->
+        <header class="chat-header glass-effect">
+            <div class="logo-area">
+                <i class="fa-solid fa-meteor logo-icon"></i>
+                <h1 class="logo-text">Ghost Chat</h1>
+            </div>
+            <div class="user-info">
+                <span class="user-badge" id="user-badge">
+                    <i class="fa-solid fa-user-astronaut"></i> <span id="user-id-display">Connecting...</span>
+                </span>
+                <span class="status-indicator online"></span>
+            </div>
+            <div class="disclaimer-tooltip">
+                <i class="fa-solid fa-shield-halved"></i>
+                <span>Messages dissolve after 24 hours.</span>
+            </div>
+        </header>
+
+        <!-- Message Area -->
+        <div class="chat-messages" id="chat-messages">
+            <!-- Messages will be injected here via JS -->
+        </div>
+
+        <!-- Input Area -->
+        <footer class="chat-input-area glass-effect">
+            <div class="input-wrapper">
+                
+                <button type="button" class="action-btn file-btn" id="file-btn" title="Upload Image">
+                    <i class="fa-solid fa-image"></i>
+                </button>
+                <input type="file" id="file-input" accept="image/*" style="display: none;">
+                
+                <textarea 
+                    id="message-input" 
+                    placeholder="Express yourself..." 
+                    rows="1"
+                    aria-label="Message Input"
+                ></textarea>
+                
+                <button type="button" class="action-btn emoji-btn" id="emoji-btn" title="Send Emoji">
+                    <i class="fa-regular fa-face-smile"></i>
+                </button>
+                
+                <button type="button" class="send-btn" id="send-btn">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+            
+            <div id="upload-preview" class="upload-preview hidden">
+                <span class="preview-text" id="preview-text"></span>
+                <button class="remove-upload-btn" id="remove-upload-btn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </footer>
+    </main>
+
+    <!-- Socket.IO Client -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
