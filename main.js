@@ -1,6 +1,6 @@
 const SUPABASE_URL = 'https://bzdxjrlfzgclstydtaja.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6ZHhqcmxmemdjbHN0eWR0YWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NjcwNTAsImV4cCI6MjA4OTE0MzA1MH0.auHFtrSQ2qazyKEuDGlyg1j3AdLYQVbFNkTQYx8-Gd0';
-const chatDb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM Elements ---
@@ -14,6 +14,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const uploadPreview = document.getElementById('upload-preview');
     const previewText = document.getElementById('preview-text');
     const removeUploadBtn = document.getElementById('remove-upload-btn');
+    const plusBtn = document.getElementById('plus-btn');
+    const actionMenu = document.getElementById('action-menu');
     
     // Feature UI
     const ghostModeBtn = document.getElementById('ghost-mode-btn');
@@ -142,7 +144,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Realtime Typing & Presence (Feature 2 & Online Users) ---
-    const presenceChannel = chatDb.channel('global_sync');
+    const presenceChannel = supabase.channel('global_sync');
+
+    if (plusBtn && actionMenu) {
+        plusBtn.addEventListener('click', () => {
+            const isHidden = actionMenu.classList.toggle('hidden');
+            plusBtn.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(45deg)';
+        });
+        // Auto-hide menu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!plusBtn.contains(e.target) && !actionMenu.contains(e.target) && e.target !== messageInput) {
+                actionMenu.classList.add('hidden');
+                plusBtn.style.transform = 'rotate(0deg)';
+            }
+        });
+    }
     
     presenceChannel
         .on('presence', { event: 'sync' }, () => {
@@ -221,14 +237,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }, { threshold: 0.5 });
     
     window.markAsRead = async (msgId) => {
-        const { data } = await chatDb.from('messages').select('emoji').eq('messageId', msgId).single();
+        const { data } = await supabase.from('messages').select('emoji').eq('messageId', msgId).single();
         if(data && data.emoji && data.emoji.startsWith('META:')) {
             try {
                 let meta = JSON.parse(data.emoji.substring(5));
                 meta.readBy = meta.readBy || [];
                 if (!meta.readBy.includes(currentUser)) {
                     meta.readBy.push(currentUser);
-                    await chatDb.from('messages').update({ emoji: 'META:' + JSON.stringify(meta) }).eq('messageId', msgId);
+                    await supabase.from('messages').update({ emoji: 'META:' + JSON.stringify(meta) }).eq('messageId', msgId);
                 }
             } catch(e) {}
         }
@@ -594,10 +610,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const fileExt = MediaRecorder.isTypeSupported('audio/webm') ? 'webm' : 'mp4';
             const fileName = `audio-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-            const { error } = await chatDb.storage.from('uploads').upload(fileName, audioBlob, { contentType: `audio/${fileExt}` });
+            const { error } = await supabase.storage.from('uploads').upload(fileName, audioBlob, { contentType: `audio/${fileExt}` });
             if(error) throw error;
             
-            const { data: publicUrlData } = chatDb.storage.from('uploads').getPublicUrl(fileName);
+            const { data: publicUrlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
             
             const metaInfo = { ghost_mode: isGhostMode, color: userColor, nickname: userName, reactions: {}, isAudio: true, isEmojiOnly: false, rawEmoji: '', readBy: [], reply: replyingToMsg ? replyingToMsg : null };
             const msg = {
@@ -609,7 +625,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 createdAt: Date.now()
             };
             
-            const { error: dbErr } = await chatDb.from('messages').insert([msg]);
+            const { error: dbErr } = await supabase.from('messages').insert([msg]);
             if(dbErr) throw dbErr;
             
             appendMessage(msg);

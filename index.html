@@ -30,9 +30,8 @@
                 </span>
                 <div class="online-users-wrapper" id="online-users-wrapper" title="Online Users">
                     <span class="status-indicator online"></span>
-                    <span id="online-count" class="online-count-text">1</span>
                     <div id="online-dropdown" class="online-dropdown hidden glass-effect">
-                        <div class="online-dropdown-header">Online Now</div>
+                        <div class="online-dropdown-header">Online Now: <span id="online-count">0</span></div>
                         <ul id="online-users-list"></ul>
                     </div>
                 </div>
@@ -59,33 +58,35 @@
                 <button class="remove-reply-btn" id="remove-reply-btn"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="input-wrapper">
-                
-                <button type="button" class="action-btn ghost-mode-btn" id="ghost-mode-btn" title="Ghost Mode (10s Self-Destruct)">
-                    <i class="fa-solid fa-ghost"></i>
+                <button type="button" class="action-btn plus-btn" id="plus-btn" title="More Actions">
+                    <i class="fa-solid fa-plus"></i>
                 </button>
-                <button type="button" class="action-btn file-btn" id="file-btn" title="Upload Image">
-                    <i class="fa-solid fa-image"></i>
-                </button>
-                <input type="file" id="file-input" accept="image/*" style="display: none;">
                 
+                <div id="action-menu" class="action-menu hidden glass-effect">
+                    <button type="button" class="action-btn emoji-btn" id="emoji-btn" title="Send Emoji">
+                        <i class="fa-regular fa-face-smile"></i>
+                    </button>
+                    <button type="button" class="action-btn ghost-mode-btn" id="ghost-mode-btn" title="Ghost Mode (10s Self-Destruct)">
+                        <i class="fa-solid fa-ghost"></i>
+                    </button>
+                    <button type="button" class="action-btn file-btn" id="file-btn" title="Upload Image">
+                        <i class="fa-solid fa-image"></i>
+                    </button>
+                    <input type="file" id="file-input" accept="image/*" style="display: none;">
+                    <button type="button" class="action-btn mic-btn" id="mic-btn" title="Voice Message (Tap to start/stop)">
+                        <i class="fa-solid fa-microphone"></i>
+                    </button>
+                    <button type="button" class="action-btn nudge-btn" id="nudge-btn" title="Send a Nudge!">
+                        <i class="fa-solid fa-hand-point-right"></i>
+                    </button>
+                </div>
+
                 <textarea 
                     id="message-input" 
-                    placeholder="Express yourself..." 
+                    placeholder="Message" 
                     rows="1"
                     aria-label="Message Input"
                 ></textarea>
-                
-                <button type="button" class="action-btn emoji-btn" id="emoji-btn" title="Send Emoji">
-                    <i class="fa-regular fa-face-smile"></i>
-                </button>
-                
-                <button type="button" class="action-btn mic-btn" id="mic-btn" title="Voice Message (Tap to start/stop)">
-                    <i class="fa-solid fa-microphone"></i>
-                </button>
-                
-                <button type="button" class="action-btn nudge-btn" id="nudge-btn" title="Send a Nudge!">
-                    <i class="fa-solid fa-hand-point-right"></i>
-                </button>
                 
                 <button type="button" class="send-btn" id="send-btn">
                     <i class="fa-solid fa-paper-plane"></i>
