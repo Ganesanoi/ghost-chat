@@ -695,3 +695,20 @@ span.emoji {
         margin-bottom: 0;
     }
 }
+
+/* Voice Message Styling */
+.mic-btn.recording {
+    color: #ff2a6d;
+    animation: pulseRed 1s infinite alternate;
+}
+@keyframes pulseRed {
+    from { transform: scale(1); filter: drop-shadow(0 0 2px #ff2a6d); }
+    to { transform: scale(1.2); filter: drop-shadow(0 0 8px #ff2a6d); }
+}
+.message-audio {
+    margin-top: 0.5rem;
+    max-width: 100%;
+    height: 40px;
+    border-radius: 20px;
+    outline: none;
+}

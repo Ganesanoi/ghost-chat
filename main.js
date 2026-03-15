@@ -8,9 +8,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatMessages = document.getElementById('chat-messages');
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
-    const fileBtn = document.getElementById('file-btn');
     const fileInput = document.getElementById('file-input');
     const emojiBtn = document.getElementById('emoji-btn');
+    const micBtn = document.getElementById('mic-btn');
     const uploadPreview = document.getElementById('upload-preview');
     const previewText = document.getElementById('preview-text');
     const removeUploadBtn = document.getElementById('remove-upload-btn');
@@ -34,6 +34,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let userName = "Ghost";
     let userColor = "var(--primary-color)";
     let typingTimeout = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
 
     // --- Audio System (Feature 5) ---
     const sounds = {
@@ -216,12 +219,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (fileUrl) {
-            const img = document.createElement('img');
-            img.src = fileUrl;
-            img.classList.add('message-image');
-            img.alt = "Uploaded image";
-            img.onload = scrollToBottom;
-            bubbleDiv.appendChild(img);
+            if (meta.isAudio || fileUrl.match(/\.(webm|mp4|mp3|ogg|wav)$/i)) {
+                const audio = document.createElement('audio');
+                audio.controls = true;
+                audio.src = fileUrl;
+                audio.classList.add('message-audio');
+                bubbleDiv.appendChild(audio);
+            } else {
+                const img = document.createElement('img');
+                img.src = fileUrl;
+                img.classList.add('message-image');
+                img.alt = "Uploaded image";
+                img.onload = scrollToBottom;
+                bubbleDiv.appendChild(img);
+            }
         }
         
         // Setup Reactions Box (Feature 4)
@@ -382,6 +393,79 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if(fileBtn) fileBtn.addEventListener('click', () => fileInput.click());
+
+    if(micBtn) micBtn.addEventListener('click', async () => {
+        if(!isRecording) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = e => { if(e.data.size > 0) audioChunks.push(e.data); };
+                
+                mediaRecorder.onstop = async () => {
+                    stream.getTracks().forEach(t => t.stop()); // kill the red dot on tab
+                    const audioBlob = new Blob(audioChunks);
+                    sendAudioMessage(audioBlob);
+                };
+                
+                mediaRecorder.start();
+                isRecording = true;
+                micBtn.classList.add('recording');
+                if (messageInput) {
+                    messageInput.placeholder = "Recording audio... Tap mic to stop.";
+                    messageInput.disabled = true;
+                }
+            } catch(err) {
+                console.error("Mic error", err);
+                alert("Please allow Microphone access to send voice messages.");
+            }
+        } else {
+            mediaRecorder.stop();
+            isRecording = false;
+            micBtn.classList.remove('recording');
+            if (messageInput) {
+                messageInput.placeholder = "Express yourself...";
+                messageInput.disabled = false;
+            }
+        }
+    });
+
+    const sendAudioMessage = async (audioBlob) => {
+        if(sendBtn) { sendBtn.style.opacity = '0.5'; sendBtn.disabled = true; }
+        
+        try {
+            const fileExt = MediaRecorder.isTypeSupported('audio/webm') ? 'webm' : 'mp4';
+            const fileName = `audio-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+            const { error } = await chatDb.storage.from('uploads').upload(fileName, audioBlob, { contentType: `audio/${fileExt}` });
+            if(error) throw error;
+            
+            const { data: publicUrlData } = chatDb.storage.from('uploads').getPublicUrl(fileName);
+            
+            const metaInfo = { ghost_mode: isGhostMode, color: userColor, nickname: userName, reactions: {}, isAudio: true, isEmojiOnly: false, rawEmoji: '' };
+            const msg = {
+                messageId: Date.now() + '-' + Math.random().toString(36).substring(2, 9),
+                userId: currentUser,
+                text: '',
+                emoji: 'META:' + JSON.stringify(metaInfo),
+                fileUrl: publicUrlData.publicUrl,
+                createdAt: Date.now()
+            };
+            
+            const { error: dbErr } = await chatDb.from('messages').insert([msg]);
+            if(dbErr) throw dbErr;
+            
+            appendMessage(msg);
+            playSound('send');
+            scrollToBottom();
+        } catch(err) {
+            console.error(err);
+            alert("Failed to send audio message.");
+        } finally {
+            if(sendBtn) { sendBtn.style.opacity = '1'; sendBtn.disabled = false; }
+            if(isGhostMode) { isGhostMode = false; if(ghostModeBtn) ghostModeBtn.classList.remove('active'); }
+        }
+    };
 
     if(fileInput) fileInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
