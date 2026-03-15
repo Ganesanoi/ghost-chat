@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -5,10 +6,17 @@ const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
+
+// Supabase Connection
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+    console.error("Missing Supabase environment variables!");
+}
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
 const PORT = process.env.PORT || 3000;
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
@@ -48,38 +56,56 @@ const upload = multer({
     }
 });
 
-// In-Memory storage for temporary messages and files mapping
 // Messages expire strictly after 24 hours
 const MS_IN_24_HOURS = 24 * 60 * 60 * 1000;
-let messages = [];
 
 // Helper to clean up expired messages and their associated files
-const cleanupExpiredMessages = () => {
-    const now = Date.now();
-    const activeMessages = [];
+const cleanupExpiredMessages = async () => {
+    try {
+        const twentyFourHoursAgo = Date.now() - MS_IN_24_HOURS;
+        
+        // Find expired messages to delete associated local files
+        const { data: expiredMessages, error: fetchError } = await supabase
+            .from('messages')
+            .select('*')
+            .lt('createdAt', twentyFourHoursAgo);
 
-    messages.forEach(msg => {
-        if (now - msg.createdAt > MS_IN_24_HOURS) {
-            // Message expired, delete attached file if exists
-            if (msg.fileUrl) {
-                // Parse filename from URL (e.g., /uploads/filename.jpg -> filename.jpg)
-                const filename = msg.fileUrl.split('/').pop();
-                const filePath = path.join(UPLOADS_DIR, filename);
-                if (fs.existsSync(filePath)) {
-                    try {
-                        fs.unlinkSync(filePath);
-                        console.log(`Deleted expired file: ${filename}`);
-                    } catch (err) {
-                        console.error(`Failed to delete file: ${filename}`, err);
+        if (fetchError) {
+            console.error('Error fetching expired messages from Supabase:', fetchError);
+            return;
+        }
+
+        if (expiredMessages && expiredMessages.length > 0) {
+            expiredMessages.forEach(msg => {
+                if (msg.fileUrl) {
+                    const filename = msg.fileUrl.split('/').pop();
+                    const filePath = path.join(UPLOADS_DIR, filename);
+                    if (fs.existsSync(filePath)) {
+                        try {
+                            fs.unlinkSync(filePath);
+                            console.log(`Deleted expired file: ${filename}`);
+                        } catch (err) {
+                            console.error(`Failed to delete file: ${filename}`, err);
+                        }
                     }
                 }
-            }
-        } else {
-            activeMessages.push(msg);
-        }
-    });
+            });
 
-    messages = activeMessages;
+            // Delete from Supabase
+            const { error: deleteError } = await supabase
+                .from('messages')
+                .delete()
+                .lt('createdAt', twentyFourHoursAgo);
+            
+            if (deleteError) {
+                console.error("Error deleting old messages from Supabase:", deleteError);
+            } else {
+                console.log(`Cleaned up ${expiredMessages.length} expired messages from database.`);
+            }
+        }
+    } catch (err) {
+        console.error("Cleanup error:", err);
+    }
 };
 
 // Run cleanup every hour
@@ -94,15 +120,30 @@ app.post('/upload', upload.single('media'), (req, res) => {
     res.json({ fileUrl });
 });
 
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
     console.log(`User connected: ${socket.id}`);
 
     // Send history of current unexpired messages to new user
-    cleanupExpiredMessages();
-    socket.emit('message_history', messages);
+    try {
+        const twentyFourHoursAgo = Date.now() - MS_IN_24_HOURS;
+        const { data: messages, error } = await supabase
+            .from('messages')
+            .select('*')
+            .gt('createdAt', twentyFourHoursAgo)
+            .order('createdAt', { ascending: true });
+
+        if (error) {
+            console.error("Error fetching message history:", error);
+            socket.emit('message_history', []);
+        } else {
+            socket.emit('message_history', messages || []);
+        }
+    } catch (err) {
+        console.error("Error on connection history fetch:", err);
+    }
 
     // Handle new incoming chat message
-    socket.on('chat_message', (data) => {
+    socket.on('chat_message', async (data) => {
         const { userId, text, emoji, fileUrl } = data;
         
         const messageObject = {
@@ -114,8 +155,11 @@ io.on('connection', (socket) => {
             createdAt: Date.now()
         };
 
-        // Store message
-        messages.push(messageObject);
+        // Store message in Supabase
+        const { error } = await supabase.from('messages').insert([messageObject]);
+        if (error) {
+            console.error("Error saving message to Supabase:", error);
+        }
 
         // Broadcast to everyone including sender
         io.emit('chat_message', messageObject);
