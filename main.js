@@ -1,8 +1,6 @@
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-
 const SUPABASE_URL = 'https://bzdxjrlfzgclstydtaja.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6ZHhqcmxmemdjbHN0eWR0YWphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NjcwNTAsImV4cCI6MjA4OTE0MzA1MH0.auHFtrSQ2qazyKEuDGlyg1j3AdLYQVbFNkTQYx8-Gd0';
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const chatDb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM Elements ---
@@ -121,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Realtime Typing Indicator (Feature 2) ---
-    const presenceChannel = supabase.channel('typing_sync');
+    const presenceChannel = chatDb.channel('typing_sync');
     presenceChannel
         .on('broadcast', { event: 'typing' }, payload => {
             if (payload.userId !== currentUser) {

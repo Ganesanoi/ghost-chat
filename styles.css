@@ -685,8 +685,13 @@ span.emoji {
 }
 .reaction-option:hover { transform: scale(1.3); }
 
-/* Custom Colors injection support */
-.message-bubble.custom-color-bubble p a,
-.message-bubble.custom-color-bubble {
-    /* JS will inject inline styles occasionally or we apply classes */
+/* Fallback for older browsers (e.g. Android 7) lacking flexbox gap support */
+.chat-messages > .message {
+    margin-bottom: 1rem;
+}
+
+@supports (gap: 1rem) {
+    .chat-messages > .message {
+        margin-bottom: 0;
+    }
 }
